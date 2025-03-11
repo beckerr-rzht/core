@@ -89,6 +89,13 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 		dsasl_client_new(client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
+	if (client->proxy_exchange) {
+		str_printfa(str, "AUTH %s\r\n", mech_name);
+		o_stream_nsend(output, str_data(str), str_len(str));
+		if (client->proxy_state != POP3_PROXY_XCLIENT)
+			client->proxy_state = POP3_PROXY_LOGIN2;
+		return 0;
+	}
 	str_printfa(str, "AUTH %s ", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &len, &error) < 0) {
@@ -234,6 +241,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 				LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
 			return -1;
 		}
+		pop3_client->proxy_exchange =
+			str_begins(line+3, " The Microsoft Exchange");
 		pop3_client->proxy_xclient =
 			str_begins_with(line, " [XCLIENT]");
 
